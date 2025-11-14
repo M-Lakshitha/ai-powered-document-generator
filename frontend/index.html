@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Documentation Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1>🤖 AI Code Documentation Generator</h1>
+            <p>Upload your code and get professional documentation instantly</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Step 1: Upload Section -->
+        <section id="uploadSection" class="card step-section active">
+            <div class="step-indicator">
+                <span class="step-number">1</span>
+                <h2 class="section-title">Upload Your Code Files</h2>
+            </div>
+
+            <!-- Dropzone -->
+            <div id="dropzone" class="dropzone">
+                <div class="dropzone-content">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <h3>Drag & Drop Files Here</h3>
+                    <p>or click to browse</p>
+                    <small>Supports: .py .js .ts .jsx .tsx .java .cpp .c .go .rs .html .css</small>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".py,.js,.ts,.jsx,.tsx,.java,.cpp,.c,.go,.rs,.html,.css" hidden>
+            </div>
+
+            <!-- Selected Files -->
+            <div id="selectedFilesContainer" class="selected-files" style="display: none;">
+                <h3>Selected Files (<span id="fileCount">0</span>)</h3>
+                <div id="fileList" class="file-list"></div>
+            </div>
+
+            <!-- Project Name Input -->
+            <div class="form-group">
+                <label for="projectName">Project Name (optional)</label>
+                <input type="text" id="projectName" placeholder="My Awesome Project" class="form-input">
+            </div>
+
+            <!-- Upload Button -->
+            <button id="uploadBtn" class="btn btn-primary btn-large" disabled>
+                <span>Upload & Generate Documentation</span>
+            </button>
+
+            <!-- Error Display -->
+            <div id="uploadError" class="error-message" style="display: none;"></div>
+        </section>
+
+        <!-- Step 2: Progress Section -->
+        <section id="progressSection" class="card step-section">
+            <div class="step-indicator">
+                <span class="step-number">2</span>
+                <h2 class="section-title">Generating Documentation</h2>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+
+            <!-- Status Grid -->
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Status</span>
+                    <span id="statusText" class="status-value">Starting...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Current Stage</span>
+                    <span id="stageText" class="status-value">Initializing</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Files Processed</span>
+                    <span id="filesProcessed" class="status-value">0/0</span>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="activity-log">
+                <h3>Activity Log</h3>
+                <div id="activityLog" class="log-content">
+                    <div class="log-entry">Uploading files...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 3: Results Section -->
+        <section id="resultsSection" class="card step-section">
+            <div class="step-indicator success">
+                <span class="step-number">✓</span>
+                <h2 class="section-title">Documentation Ready!</h2>
+            </div>
+
+            <!-- Generated Files -->
+            <div id="generatedFiles" class="generated-files"></div>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button id="downloadAllBtn" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download All as ZIP
+                </button>
+                <button id="generateAgainBtn" class="btn btn-secondary">Generate Again</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Powered by AI Agents • Built with FastAPI & Groq</p>
+    </footer>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const API_BASE = window.location.origin;
+
+        // ==================== STATE ====================
+        let selectedFiles = [];
+        let sessionId = null;
+        let pollInterval = null;
+
+        // ==================== DOM ELEMENTS ====================
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const fileCount = document.getElementById('fileCount');
+        const selectedFilesContainer = document.getElementById('selectedFilesContainer');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadError = document.getElementById('uploadError');
+        const projectNameInput = document.getElementById('projectName');
+
+        const uploadSection = document.getElementById('uploadSection');
+        const progressSection = document.getElementById('progressSection');
+        const resultsSection = document.getElementById('resultsSection');
+
+        const progressFill = document.getElementById('progressFill');
+        const progressPercent = document.getElementById('progressPercent');
+        const statusText = document.getElementById('statusText');
+        const stageText = document.getElementById('stageText');
+        const filesProcessed = document.getElementById('filesProcessed');
+        const activityLog = document.getElementById('activityLog');
+
+        const generatedFiles = document.getElementById('generatedFiles');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const generateAgainBtn = document.getElementById('generateAgainBtn');
+
+        // ==================== FILE SELECTION ====================
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            const validExtensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.cpp', '.c', '.go', '.rs', '.html', '.css'];
+            const newFiles = Array.from(files).filter(file => {
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                return validExtensions.includes(ext);
+            });
+
+            if (newFiles.length === 0) {
+                showError('No valid code files selected. Please upload code files only.');
+                return;
+            }
+
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updateFileList();
+            uploadBtn.disabled = false;
+            hideError();
+        }
+
+        function updateFileList() {
+            fileCount.textContent = selectedFiles.length;
+            selectedFilesContainer.style.display = 'block';
+            
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="file-item">
+                    <span class="file-name">${file.name}</span>
+                    <span class="file-size">${formatFileSize(file.size)}</span>
+                    <button class="remove-btn" onclick="removeFile(${index})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+            
+            if (selectedFiles.length === 0) {
+                selectedFilesContainer.style.display = 'none';
+                uploadBtn.disabled = true;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ==================== ERROR HANDLING ====================
+        function showError(message) {
+            uploadError.textContent = message;
+            uploadError.style.display = 'block';
+        }
+
+        function hideError() {
+            uploadError.style.display = 'none';
+        }
+
+        // ==================== UPLOAD & GENERATION ====================
+        uploadBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
+                showError('Please select files to upload');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner"></span> Uploading...';
+            hideError();
+
+            try {
+                // Step 1: Upload files
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('files', file);
+                });
+
+                console.log('📤 Uploading files...');
+                const uploadResponse = await fetch(`${API_BASE}/api/upload/`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json();
+                    throw new Error(errorData.detail || 'Upload failed');
+                }
+
+                const uploadData = await uploadResponse.json();
+                sessionId = uploadData.session_id;  // ✅ FIXED: Changed from uploadData.sessionid
+                console.log('✅ Upload complete. Session ID:', sessionId);
+
+                addLogEntry(`✅ Uploaded ${uploadData.files_uploaded} files (${formatFileSize(uploadData.total_size)})`);
+
+                // Step 2: Start generation
+                const projectName = projectNameInput.value || 'Project';
+                const genResponse = await fetch(`${API_BASE}/api/generate/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        project_name: projectName,
+                        include_examples: true
+                    })
+                });
+
+                if (!genResponse.ok) {
+                    const errorData = await genResponse.json();
+                    throw new Error(errorData.detail || 'Generation start failed');
+                }
+
+                console.log('🚀 Generation started');
+                addLogEntry('🚀 Documentation generation started');
+
+                // Switch to progress view
+                switchSection('progress');
+                startProgressPolling();
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showError(error.message);
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<span>Upload & Generate Documentation</span>';
+            }
+        });
+
+        // ==================== PROGRESS POLLING ====================
+        function startProgressPolling() {
+            pollInterval = setInterval(checkProgress, 1000);
+        }
+
+        async function checkProgress() {
+            try {
+                const response = await fetch(`${API_BASE}/api/generate/status/${sessionId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get status');
+                }
+
+                const status = await response.json();
+                updateProgress(status);
+
+                if (status.status === 'completed') {
+                    clearInterval(pollInterval);
+                    await loadResults();
+                } else if (status.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showError('Documentation generation failed: ' + status.message);
+                    addLogEntry('❌ Generation failed: ' + status.message);
+                }
+            } catch (error) {
+                console.error('❌ Progress check error:', error);
+            }
+        }
+
+        function updateProgress(status) {
+            progressFill.style.width = status.progress + '%';
+            progressPercent.textContent = status.progress + '%';
+            statusText.textContent = status.status;
+            stageText.textContent = status.current_stage;
+            filesProcessed.textContent = `${status.files_processed}/${status.total_files}`;
+            
+            addLogEntry(`🔄 ${status.message}`);
+        }
+
+        function addLogEntry(message) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            activityLog.appendChild(entry);
+            activityLog.scrollTop = activityLog.scrollHeight;
+        }
+
+        // ==================== RESULTS ====================
+        async function loadResults() {
+            try {
+                const response = await fetch(`${API_BASE}/api/generate/result/${sessionId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load results');
+                }
+
+                const result = await response.json();
+                displayResults(result);
+                switchSection('results');
+                addLogEntry('✅ Documentation complete!');
+
+            } catch (error) {
+                console.error('❌ Results load error:', error);
+                showError('Failed to load results: ' + error.message);
+            }
+        }
+
+        function displayResults(result) {
+            if (!result.download_urls || result.download_urls.length === 0) {
+                generatedFiles.innerHTML = '<p class="no-files">No files generated</p>';
+                return;
+            }
+
+            generatedFiles.innerHTML = result.download_urls.map(url => {
+                const filename = url.split('/').pop();
+                const icon = getFileIcon(filename);
+                return `
+                    <div class="file-card">
+                        <div class="file-icon">${icon}</div>
+                        <div class="file-info">
+                            <h4>${filename}</h4>
+                            <p>${getFileDescription(filename)}</p>
+                        </div>
+                        <a href="${API_BASE}${url}" class="download-link" download>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Download
+                        </a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getFileIcon(filename) {
+            if (filename.includes('README')) return '📘';
+            if (filename.includes('API')) return '🔌';
+            if (filename.includes('ARCHITECTURE')) return '🏗️';
+            return '📄';
+        }
+
+        function getFileDescription(filename) {
+            if (filename.includes('README')) return 'Project overview and quick start guide';
+            if (filename.includes('API')) return 'Complete API reference documentation';
+            if (filename.includes('ARCHITECTURE')) return 'System architecture and design patterns';
+            return 'Documentation file';
+        }
+
+        // ==================== NAVIGATION ====================
+        function switchSection(section) {
+            uploadSection.classList.remove('active');
+            progressSection.classList.remove('active');
+            resultsSection.classList.remove('active');
+
+            if (section === 'upload') uploadSection.classList.add('active');
+            if (section === 'progress') progressSection.classList.add('active');
+            if (section === 'results') resultsSection.classList.add('active');
+        }
+
+        // ==================== DOWNLOAD ALL ====================
+        downloadAllBtn.addEventListener('click', () => {
+            window.location.href = `${API_BASE}/api/download/zip/${sessionId}`;
+        });
+
+        // ==================== GENERATE AGAIN ====================
+        generateAgainBtn.addEventListener('click', () => {
+            selectedFiles = [];
+            sessionId = null;
+            fileList.innerHTML = '';
+            selectedFilesContainer.style.display = 'none';
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span>Upload & Generate Documentation</span>';
+            activityLog.innerHTML = '';
+            switchSection('upload');
+        });
+    </script>
+</body>
+</html>

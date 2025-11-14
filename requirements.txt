@@ -1,0 +1,23 @@
+# FastAPI & Server
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+aiofiles==24.1.0
+
+# Data validation
+pydantic==2.9.2
+pydantic-settings==2.6.0
+
+# AI/ML
+crewai==0.86.0
+langchain-groq==0.2.1
+tiktoken==0.8.0
+
+# Utils
+python-dotenv==1.0.1
+redis==5.2.0
+celery==5.4.0
+
+# Background tasks
+asyncio
+concurrent-futures
