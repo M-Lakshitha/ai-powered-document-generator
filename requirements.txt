@@ -18,8 +18,7 @@ python-dotenv==1.0.1
 redis==5.2.0
 celery==5.4.0
 
-# Background tasks
-asyncio
-concurrent-futures
+
+
 
 
